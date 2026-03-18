@@ -408,6 +408,21 @@ select.form-input option{background:var(--card);}
           <select class="filter-select" id="riskFilter" onchange="filterGantt()"><option value="">Todos Riscos</option><option>Baixo</option><option>Médio</option><option>Alto</option><option>Crítico</option></select>
           <select class="filter-select" id="statusFilter" onchange="filterGantt()"><option value="">Todos Status</option><option>Aprovado</option><option>Reprovado</option><option>Pendente</option></select>
           <select class="filter-select" id="familyFilter" onchange="filterGantt()"><option value="">Todas Famílias</option></select>
+          <select class="filter-select" id="monthFilter" onchange="filterGantt()" style="min-width:130px;">
+            <option value="">📅 Todos os Meses</option>
+            <option value="0">Janeiro</option>
+            <option value="1">Fevereiro</option>
+            <option value="2">Março</option>
+            <option value="3">Abril</option>
+            <option value="4">Maio</option>
+            <option value="5">Junho</option>
+            <option value="6">Julho</option>
+            <option value="7">Agosto</option>
+            <option value="8">Setembro</option>
+            <option value="9">Outubro</option>
+            <option value="10">Novembro</option>
+            <option value="11">Dezembro</option>
+          </select>
           <span id="ganttCount" style="font-size:12px;color:var(--text-secondary);white-space:nowrap;"></span>
         </div>
         <div class="gantt-wrap">
@@ -835,11 +850,17 @@ function renderAnalytics(){
    GANTT
 ═══════════════════════════════ */
 function renderGantt(){
-  document.getElementById('ganttHead').innerHTML=MONTHS.map(m=>`<div class="gantt-month-label">${m}</div>`).join('');
-  document.getElementById('ganttCount').textContent=`${S.filtered.length} de ${S.audits.length} registros`;
+  const mo=document.getElementById('monthFilter')?.value;
+  const moIdx=(mo!==''&&mo!=null)?parseInt(mo):-1;
+  // Cabeçalho: destaca o mês filtrado
+  document.getElementById('ganttHead').innerHTML=MONTHS.map((m,i)=>{
+    const active=moIdx===i;
+    return`<div class="gantt-month-label" style="${active?'color:var(--accent);font-weight:800;border-bottom:2px solid var(--accent);padding-bottom:4px;':''} ">${active?'📅 ':''}${m}</div>`;
+  }).join('');
+  document.getElementById('ganttCount').textContent=`${S.filtered.length} de ${S.audits.length} registros${moIdx>=0?' · '+MONTHS[moIdx]:''}`;
   document.getElementById('ganttRows').innerHTML=S.filtered.map(a=>{
     const rc=RISK_COLORS[a.risk]||'var(--accent)';
-    return`<div class="gantt-row" onclick="viewAudit(${a.id})"><div class="gantt-info"><div class="gantt-item-title">${a.sap}</div><div class="gantt-item-sub"><span class="badge badge-client" style="background:${rc}20;color:${rc};">${a.client}</span><span>${a.desc}</span></div><div style="margin-top:4px;"><span class="badge ${a.status==='Aprovado'?'badge-green':a.status==='Pendente'?'badge-yellow':'badge-red'}">${a.status}</span></div></div><div class="gantt-bars">${(a.months||Array(12).fill(0)).map((v,i)=>{const cls=['bar-empty','bar-scheduled','bar-completed','bar-inprogress','bar-alert'][v]||'bar-empty';const icon=['','📅','✓','⚡','⚠'][v]||'';return`<div class="gantt-bar ${cls}" onclick="event.stopPropagation();toggleMonth(${a.id},${i})">${icon}<div class="gantt-tooltip">${MONTHS[i]}: ${STATUS_LABELS[v]||'—'}</div></div>`;}).join('')}</div></div>`;
+    return`<div class="gantt-row" onclick="viewAudit(${a.id})"><div class="gantt-info"><div class="gantt-item-title">${a.sap}</div><div class="gantt-item-sub"><span class="badge badge-client" style="background:${rc}20;color:${rc};">${a.client}</span><span>${a.desc}</span></div><div style="margin-top:4px;"><span class="badge ${a.status==='Aprovado'?'badge-green':a.status==='Pendente'?'badge-yellow':'badge-red'}">${a.status}</span></div></div><div class="gantt-bars">${(a.months||Array(12).fill(0)).map((v,i)=>{const cls=['bar-empty','bar-scheduled','bar-completed','bar-inprogress','bar-alert'][v]||'bar-empty';const icon=['','📅','✓','⚡','⚠'][v]||'';const highlight=moIdx===i?'outline:2px solid var(--accent);outline-offset:2px;border-radius:8px;':'';return`<div class="gantt-bar ${cls}" style="${highlight}" onclick="event.stopPropagation();toggleMonth(${a.id},${i})">${icon}<div class="gantt-tooltip">${MONTHS[i]}: ${STATUS_LABELS[v]||'—'}</div></div>`;}).join('')}</div></div>`;
   }).join('');
 }
 async function toggleMonth(id,month){
@@ -865,7 +886,13 @@ function filterGantt(){
   const ri=document.getElementById('riskFilter')?.value||'';
   const st=document.getElementById('statusFilter')?.value||'';
   const fa=document.getElementById('familyFilter')?.value||'';
-  S.filtered=S.audits.filter(a=>{const ms=!s||[a.sap,a.pn,a.client,a.desc,a.resp,a.family].some(x=>(x||'').toLowerCase().includes(s));return ms&&(!cl||a.client===cl)&&(!ri||a.risk===ri)&&(!st||a.status===st)&&(!fa||a.family===fa);});
+  const mo=document.getElementById('monthFilter')?.value;
+  const moIdx=(mo!==''&&mo!=null)?parseInt(mo):-1;
+  S.filtered=S.audits.filter(a=>{
+    const ms=!s||[a.sap,a.pn,a.client,a.desc,a.resp,a.family].some(x=>(x||'').toLowerCase().includes(s));
+    const monthOk=moIdx<0||(a.months&&a.months[moIdx]>0);
+    return ms&&(!cl||a.client===cl)&&(!ri||a.risk===ri)&&(!st||a.status===st)&&(!fa||a.family===fa)&&monthOk;
+  });
   renderGantt();renderMetrics();
 }
 
